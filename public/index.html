@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SendIt — Transfer Temporar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --border: #1e1e2e;
+      --border-active: #4f46e5;
+      --accent: #4f46e5;
+      --accent-glow: rgba(79, 70, 229, 0.35);
+      --accent-2: #06b6d4;
+      --text: #e8e8f0;
+      --text-muted: #5a5a72;
+      --text-dim: #8888aa;
+      --success: #10b981;
+      --error: #ef4444;
+      --font-display: 'Syne', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-display);
+      overflow-x: hidden;
+    }
+
+    /* Ambient grid background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(79,70,229,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79,70,229,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Radial glow top */
+    body::after {
+      content: '';
+      position: fixed;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 500px;
+      background: radial-gradient(ellipse, rgba(79,70,229,0.12) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      gap: 48px;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      animation: fadeDown 0.6s ease both;
+    }
+
+    .logo {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-bottom: 16px;
+    }
+
+    .logo span {
+      color: var(--accent-2);
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+
+    h1 em {
+      font-style: normal;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 15px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+      font-weight: 400;
+    }
+
+    /* Main card */
+    .card {
+      width: 100%;
+      max-width: 560px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px;
+      animation: fadeUp 0.7s ease 0.1s both;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+
+    .card.active::before { opacity: 1; }
+
+    /* Drop zone */
+    #drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 56px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+      background: transparent;
+    }
+
+    #drop-zone:hover,
+    #drop-zone.drag-over {
+      border-color: var(--border-active);
+      background: rgba(79, 70, 229, 0.04);
+    }
+
+    #drop-zone.drag-over {
+      transform: scale(1.01);
+      box-shadow: 0 0 40px var(--accent-glow);
+    }
+
+    .drop-icon {
+      width: 52px;
+      height: 52px;
+      margin: 0 auto 20px;
+      background: rgba(79, 70, 229, 0.12);
+      border: 1px solid rgba(79, 70, 229, 0.25);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.25s;
+    }
+
+    #drop-zone:hover .drop-icon,
+    #drop-zone.drag-over .drop-icon {
+      background: rgba(79, 70, 229, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .drop-icon svg {
+      width: 24px;
+      height: 24px;
+      stroke: var(--accent);
+    }
+
+    .drop-text-main {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .drop-text-sub {
+      font-size: 13px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    .drop-text-sub strong {
+      color: var(--accent-2);
+      font-weight: 500;
+    }
+
+    #file-input { display: none; }
+
+    /* File selected state */
+    #file-info {
+      display: none;
+      margin-top: 20px;
+      padding: 14px 16px;
+      background: rgba(79, 70, 229, 0.06);
+      border: 1px solid rgba(79, 70, 229, 0.2);
+      border-radius: 10px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #file-info.hidden { display: none; }
+
+    .file-info-icon {
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0;
+      background: rgba(79, 70, 229, 0.15);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .file-info-icon svg { width: 18px; height: 18px; stroke: var(--accent); }
+
+    .file-info-details { flex: 1; min-width: 0; }
+    .file-info-name {
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+    .file-info-size { color: var(--text-muted); font-size: 11px; }
+
+    .file-remove {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      padding: 4px;
+      border-radius: 4px;
+      transition: color 0.2s;
+      flex-shrink: 0;
+    }
+    .file-remove:hover { color: var(--error); }
+    .file-remove svg { width: 16px; height: 16px; stroke: currentColor; display: block; }
+
+    /* Upload button */
+    #upload-btn {
+      width: 100%;
+      margin-top: 20px;
+      padding: 16px 24px;
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent) 0%, #6366f1 100%);
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    #upload-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    #upload-btn:hover:not(:disabled)::before { opacity: 1; }
+    #upload-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 32px var(--accent-glow); }
+    #upload-btn:active:not(:disabled) { transform: translateY(0); }
+    #upload-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    #upload-btn svg { width: 18px; height: 18px; stroke: currentColor; }
+
+    /* Progress */
+    #progress-wrap {
+      display: none;
+      margin-top: 16px;
+    }
+
+    #progress-wrap.visible { display: block; }
+
+    .progress-track {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.15s ease;
+    }
+
+    .progress-label {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Result box */
+    #result {
+      display: none;
+      margin-top: 24px;
+    }
+
+    #result.visible { display: block; }
+
+    .result-header {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--success);
+      font-family: var(--font-mono);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .result-header svg { width: 16px; height: 16px; stroke: currentColor; }
+
+    .link-box {
+      background: rgba(16, 185, 129, 0.05);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      word-break: break-all;
+    }
+
+    .link-url {
+      flex: 1;
+      color: var(--accent-2);
+      text-decoration: none;
+    }
+
+    .link-url:hover { text-decoration: underline; }
+
+    .copy-btn {
+      flex-shrink: 0;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .copy-btn:hover {
+      border-color: var(--success);
+      color: var(--success);
+    }
+
+    .copy-btn.copied {
+      border-color: var(--success);
+      color: var(--success);
+      background: rgba(16, 185, 129, 0.08);
+    }
+
+    .result-note {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .result-note svg { width: 13px; height: 13px; stroke: currentColor; flex-shrink: 0; }
+
+    /* Error */
+    #error-msg {
+      display: none;
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: rgba(239, 68, 68, 0.06);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 10px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--error);
+    }
+
+    #error-msg.visible { display: block; }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      animation: fadeUp 0.8s ease 0.2s both;
+    }
+
+    footer .dot { margin: 0 8px; opacity: 0.4; }
+
+    /* Animations */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Loader spinner */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    .uploading .spinner { display: block; }
+    .uploading .btn-text { display: none; }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 480px) {
+      .card { padding: 28px 20px; }
+      #drop-zone { padding: 40px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div class="logo">// <span>SendIt</span> v1.0</div>
+      <h1>Trimite orice.<br><em>Fără urmă.</em></h1>
+      <p class="subtitle">Expiră în 24h · Șters după prima descărcare</p>
+    </header>
+
+    <div class="card" id="main-card">
+      <div id="drop-zone">
+        <input type="file" id="file-input" />
+        <div class="drop-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <div class="drop-text-main">Trage fișierul aici</div>
+        <div class="drop-text-sub">sau <strong>click pentru a selecta</strong> · max 500 MB</div>
+      </div>
+
+      <div id="file-info" class="hidden">
+        <div class="file-info-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </div>
+        <div class="file-info-details">
+          <div class="file-info-name" id="info-name"></div>
+          <div class="file-info-size" id="info-size"></div>
+        </div>
+        <button class="file-remove" id="remove-btn" title="Elimină fișier">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <button id="upload-btn" disabled>
+        <div class="spinner"></div>
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span class="btn-text">Trimite Fișierul</span>
+      </button>
+
+      <div id="progress-wrap">
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="progress-label">
+          <span id="progress-pct">0%</span>
+          <span id="progress-speed"></span>
+        </div>
+      </div>
+
+      <div id="result">
+        <div class="result-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Link generat cu succes!
+        </div>
+        <div class="link-box">
+          <a class="link-url" id="result-link" href="#" target="_blank"></a>
+          <button class="copy-btn" id="copy-btn">Copiază</button>
+        </div>
+        <div class="result-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          Linkul expiră în 24 ore sau la prima descărcare
+        </div>
+      </div>
+
+      <div id="error-msg"></div>
+    </div>
+
+    <footer>
+      <span>sansiks.online</span>
+      <span class="dot">·</span>
+      <span>Transfer privat & temporar</span>
+      <span class="dot">·</span>
+      <span>Fără logare</span>
+    </footer>
+  </div>
+
+  <script>
+    const dropZone   = document.getElementById('drop-zone');
+    const fileInput  = document.getElementById('file-input');
+    const fileInfo   = document.getElementById('file-info');
+    const infoName   = document.getElementById('info-name');
+    const infoSize   = document.getElementById('info-size');
+    const removeBtn  = document.getElementById('remove-btn');
+    const uploadBtn  = document.getElementById('upload-btn');
+    const progressWrap = document.getElementById('progress-wrap');
+    const progressFill = document.getElementById('progress-fill');
+    const progressPct  = document.getElementById('progress-pct');
+    const progressSpeed = document.getElementById('progress-speed');
+    const resultDiv  = document.getElementById('result');
+    const resultLink = document.getElementById('result-link');
+    const copyBtn    = document.getElementById('copy-btn');
+    const errorMsg   = document.getElementById('error-msg');
+    const card       = document.getElementById('main-card');
+
+    let selectedFile = null;
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+      return (bytes / 1073741824).toFixed(2) + ' GB';
+    }
+
+    function setFile(file) {
+      selectedFile = file;
+      infoName.textContent = file.name;
+      infoSize.textContent = formatBytes(file.size);
+      fileInfo.classList.remove('hidden');
+      fileInfo.style.display = 'flex';
+      uploadBtn.disabled = false;
+      hideError();
+      hideResult();
+    }
+
+    function clearFile() {
+      selectedFile = null;
+      fileInput.value = '';
+      fileInfo.style.display = 'none';
+      uploadBtn.disabled = true;
+    }
+
+    function hideError() {
+      errorMsg.classList.remove('visible');
+      errorMsg.style.display = 'none';
+    }
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.classList.add('visible');
+      errorMsg.style.display = 'block';
+    }
+
+    function hideResult() {
+      resultDiv.classList.remove('visible');
+      resultDiv.style.display = 'none';
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) setFile(fileInput.files[0]);
+    });
+
+    removeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      clearFile();
+    });
+
+    ['dragenter', 'dragover'].forEach(evt => {
+      dropZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+        card.classList.add('active');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(evt => {
+      dropZone.addEventListener(evt, () => {
+        dropZone.classList.remove('drag-over');
+        card.classList.remove('active');
+      });
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (file) setFile(file);
+    });
+
+    uploadBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      // UI: start uploading
+      uploadBtn.disabled = true;
+      uploadBtn.classList.add('uploading');
+      progressWrap.classList.add('visible');
+      progressWrap.style.display = 'block';
+      hideError();
+      hideResult();
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const xhr = new XMLHttpRequest();
+      let startTime = Date.now();
+
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          progressFill.style.width = pct + '%';
+          progressPct.textContent = pct + '%';
+
+          const elapsed = (Date.now() - startTime) / 1000;
+          const speed = e.loaded / elapsed;
+          progressSpeed.textContent = formatBytes(speed) + '/s';
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        uploadBtn.classList.remove('uploading');
+        uploadBtn.disabled = false;
+
+        if (xhr.status === 200) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            progressFill.style.width = '100%';
+            progressPct.textContent = '100%';
+
+            setTimeout(() => {
+              progressWrap.classList.remove('visible');
+              progressWrap.style.display = 'none';
+              resultLink.textContent = data.downloadUrl;
+              resultLink.href = data.downloadUrl;
+              resultDiv.classList.add('visible');
+              resultDiv.style.display = 'block';
+              clearFile();
+            }, 500);
+          } catch (_) {
+            showError('Eroare la procesarea răspunsului serverului.');
+          }
+        } else {
+          let msg = 'Upload eșuat.';
+          try { msg = JSON.parse(xhr.responseText).error || msg; } catch (_) {}
+          showError(msg);
+          progressWrap.classList.remove('visible');
+          progressWrap.style.display = 'none';
+        }
+      });
+
+      xhr.addEventListener('error', () => {
+        uploadBtn.classList.remove('uploading');
+        uploadBtn.disabled = false;
+        progressWrap.classList.remove('visible');
+        progressWrap.style.display = 'none';
+        showError('Eroare de rețea. Verifică conexiunea.');
+      });
+
+      xhr.open('POST', '/upload');
+      xhr.send(formData);
+    });
+
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(resultLink.textContent).then(() => {
+        copyBtn.textContent = '✓ Copiat!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.textContent = 'Copiază';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      });
+    });
+  </script>
+</body>
+</html>

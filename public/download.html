@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SendIt — Descarcă Fișierul</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --border: #1e1e2e;
+      --accent: #4f46e5;
+      --accent-glow: rgba(79, 70, 229, 0.35);
+      --accent-2: #06b6d4;
+      --text: #e8e8f0;
+      --text-muted: #5a5a72;
+      --text-dim: #8888aa;
+      --success: #10b981;
+      --error: #ef4444;
+      --warning: #f59e0b;
+      --font-display: 'Syne', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-display);
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(79,70,229,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79,70,229,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 500px;
+      background: radial-gradient(ellipse, rgba(79,70,229,0.1) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      gap: 48px;
+    }
+
+    header {
+      text-align: center;
+      animation: fadeDown 0.6s ease both;
+    }
+
+    .logo {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-bottom: 16px;
+    }
+    .logo span { color: var(--accent-2); }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+
+    h1 em {
+      font-style: normal;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    /* Card */
+    .card {
+      width: 100%;
+      max-width: 520px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 40px;
+      animation: fadeUp 0.7s ease 0.1s both;
+      position: relative;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+
+    /* Loading state */
+    #state-loading {
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    .loading-ring {
+      width: 48px;
+      height: 48px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    .loading-text {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* File display */
+    #state-ready { display: none; }
+
+    .file-preview {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 20px;
+      background: rgba(79, 70, 229, 0.04);
+      border: 1px solid rgba(79, 70, 229, 0.15);
+      border-radius: 14px;
+      margin-bottom: 28px;
+    }
+
+    .file-icon {
+      width: 52px;
+      height: 52px;
+      flex-shrink: 0;
+      background: rgba(79, 70, 229, 0.12);
+      border: 1px solid rgba(79, 70, 229, 0.2);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .file-icon svg { width: 24px; height: 24px; stroke: var(--accent); }
+
+    .file-meta { flex: 1; min-width: 0; }
+
+    .file-name {
+      font-size: 16px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+
+    .file-details {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .badge-warn {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      color: var(--warning);
+    }
+
+    .badge svg { width: 11px; height: 11px; stroke: currentColor; }
+
+    /* Download button */
+    #download-btn {
+      width: 100%;
+      padding: 18px 24px;
+      font-family: var(--font-display);
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    #download-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.12), transparent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    #download-btn:hover::before { opacity: 1; }
+    #download-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 40px var(--accent-glow); }
+    #download-btn:active { transform: translateY(0); }
+
+    #download-btn svg { width: 20px; height: 20px; stroke: currentColor; }
+
+    #download-btn.downloading {
+      background: linear-gradient(135deg, var(--success), #059669);
+      pointer-events: none;
+    }
+
+    .dl-note {
+      margin-top: 16px;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .dl-note svg { width: 12px; height: 12px; stroke: currentColor; }
+
+    /* Error / Gone states */
+    #state-error, #state-gone { display: none; }
+
+    .state-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+    }
+
+    .state-icon.error { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); }
+    .state-icon.gone  { background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); }
+
+    .state-icon svg { width: 26px; height: 26px; }
+    .state-icon.error svg { stroke: var(--error); }
+    .state-icon.gone svg  { stroke: var(--warning); }
+
+    .state-title {
+      font-size: 20px;
+      font-weight: 800;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .state-desc {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-dim);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 24px;
+      padding: 10px 20px;
+      background: var(--border);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .back-link:hover { color: var(--text); border-color: var(--accent); }
+    .back-link svg { width: 14px; height: 14px; stroke: currentColor; }
+
+    .state-center { text-align: center; }
+
+    footer {
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      animation: fadeUp 0.8s ease 0.2s both;
+    }
+
+    footer .dot { margin: 0 8px; opacity: 0.4; }
+
+    @keyframes fadeDown { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeUp   { from { opacity:0; transform:translateY(16px);  } to { opacity:1; transform:translateY(0); } }
+    @keyframes spin     { to   { transform: rotate(360deg); } }
+
+    @media (max-width: 480px) {
+      .card { padding: 28px 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div class="logo">// <span>SendIt</span> download</div>
+      <h1>Fișier <em>pregătit.</em></h1>
+      <p class="subtitle">Descarcă înainte să expire</p>
+    </header>
+
+    <div class="card">
+
+      <!-- Loading -->
+      <div id="state-loading">
+        <div class="loading-ring"></div>
+        <div class="loading-text">Se verifică fișierul...</div>
+      </div>
+
+      <!-- Ready to download -->
+      <div id="state-ready">
+        <div class="file-preview">
+          <div class="file-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+          </div>
+          <div class="file-meta">
+            <div class="file-name" id="file-name">—</div>
+            <div class="file-details">
+              <span id="file-size">—</span>
+              <span class="badge badge-warn">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Expiră în <span id="file-expires">—</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <button id="download-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Descarcă Fișierul
+        </button>
+
+        <div class="dl-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          Linkul devine invalid după descărcare
+        </div>
+      </div>
+
+      <!-- Gone / expired -->
+      <div id="state-gone">
+        <div class="state-center">
+          <div class="state-icon gone">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div class="state-title">Fișier Expirat</div>
+          <div class="state-desc">
+            Fișierul a expirat sau a fost deja descărcat.<br/>
+            Cere expeditorului să îl trimită din nou.
+          </div>
+          <a href="/" class="back-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            Trimite un fișier nou
+          </a>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div id="state-error">
+        <div class="state-center">
+          <div class="state-icon error">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div class="state-title">Link Invalid</div>
+          <div class="state-desc" id="error-desc">
+            Fișierul nu a fost găsit.
+          </div>
+          <a href="/" class="back-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            Trimite un fișier nou
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+    <footer>
+      <span>sansiks.online</span>
+      <span class="dot">·</span>
+      <span>Transfer privat & temporar</span>
+    </footer>
+  </div>
+
+  <script>
+    const fileId = window.location.pathname.split('/').pop();
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+      return (bytes / 1073741824).toFixed(2) + ' GB';
+    }
+
+    function show(id) {
+      ['state-loading', 'state-ready', 'state-gone', 'state-error'].forEach(s => {
+        document.getElementById(s).style.display = s === id ? (s === 'state-ready' ? 'block' : 'block') : 'none';
+      });
+    }
+
+    async function loadInfo() {
+      try {
+        const res = await fetch(`/api/info/${fileId}`);
+        const data = await res.json();
+
+        if (res.status === 410) {
+          show('state-gone');
+          return;
+        }
+
+        if (!res.ok) {
+          document.getElementById('error-desc').textContent = data.error || 'Eroare necunoscută.';
+          show('state-error');
+          return;
+        }
+
+        document.getElementById('file-name').textContent = data.name;
+        document.getElementById('file-size').textContent = formatBytes(data.size);
+        document.getElementById('file-expires').textContent = data.expiresIn;
+        document.title = `SendIt — ${data.name}`;
+
+        show('state-ready');
+      } catch (_) {
+        document.getElementById('error-desc').textContent = 'Eroare de rețea.';
+        show('state-error');
+      }
+    }
+
+    document.getElementById('download-btn').addEventListener('click', () => {
+      const btn = document.getElementById('download-btn');
+      btn.classList.add('downloading');
+      btn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Descărcare în curs...
+      `;
+
+      // Trigger download prin link ascuns
+      const a = document.createElement('a');
+      a.href = `/api/download/${fileId}`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      // Afișează mesaj că linkul este acum invalid
+      setTimeout(() => {
+        show('state-gone');
+      }, 3000);
+    });
+
+    loadInfo();
+  </script>
+</body>
+</html>
